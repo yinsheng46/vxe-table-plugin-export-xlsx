@@ -1,34 +1,22 @@
 import XEUtils from 'xe-utils'
-import { VXETableCore, VxeTableConstructor, VxeTablePropTypes, VxeTableDefines, VxeGlobalInterceptorHandles } from 'vxe-table'
-import ExcelJS from 'exceljs/dist/exceljs'
-
-let vxetable:VXETableCore
-
-declare module 'vxe-table' {
-  namespace VxeTableDefines {
-    interface ExtortSheetMethodParams {
-      workbook: ExcelJS.Workbook;
-      worksheet: ExcelJS.Worksheet;
-    }
-    interface ColumnInfo {
-      _row: any;
-      _colSpan: number;
-      _rowSpan: number;
-      childNodes: VxeTableDefines.ColumnInfo[];
-    }
-  }
-}
+import {
+  VXETable,
+  Table,
+  InterceptorExportParams,
+  InterceptorImportParams,
+  ColumnConfig,
+  TableExportConfig,
+  ColumnAlign
+} from 'vxe-table'
+import * as ExcelJS from 'exceljs/dist/exceljs'
 
 const defaultHeaderBackgroundColor = 'f8f8f9'
 const defaultCellFontColor = '606266'
 const defaultCellBorderStyle = 'thin'
 const defaultCellBorderColor = 'e8eaec'
 
-function getCellLabel (column: VxeTableDefines.ColumnInfo, cellValue: any) {
+function getCellLabel (column: ColumnConfig, cellValue: any) {
   if (cellValue) {
-    if (column.type === 'seq') {
-      return XEUtils.toValueString(cellValue)
-    }
     switch (column.cellType) {
       case 'string':
         return XEUtils.toValueString(cellValue)
@@ -47,17 +35,26 @@ function getCellLabel (column: VxeTableDefines.ColumnInfo, cellValue: any) {
   return cellValue
 }
 
-function getFooterData (opts: VxeTablePropTypes.ExportConfig, footerData: any[][]) {
+function getFooterData (opts: TableExportConfig, footerData: any[][]) {
   const { footerFilterMethod } = opts
   return footerFilterMethod ? footerData.filter((items, index) => footerFilterMethod({ items, $rowIndex: index })) : footerData
 }
 
-function getFooterCellValue ($table: VxeTableConstructor, opts: VxeTablePropTypes.ExportConfig, rows: any[], column: VxeTableDefines.ColumnInfo) {
+function getFooterCellValue ($table: Table, opts: TableExportConfig, rows: any[], column: ColumnConfig) {
   const cellValue = getCellLabel(column, rows[$table.getVMColumnIndex(column)])
   return cellValue
 }
 
-function getValidColumn (column: VxeTableDefines.ColumnInfo): VxeTableDefines.ColumnInfo {
+declare module 'vxe-table' {
+  interface ColumnInfo {
+    _row: any;
+    _colSpan: number;
+    _rowSpan: number;
+    childNodes: ColumnConfig[];
+  }
+}
+
+function getValidColumn (column: ColumnConfig): ColumnConfig {
   const { childNodes } = column
   const isColGroup = childNodes && childNodes.length
   if (isColGroup) {
@@ -72,7 +69,7 @@ function setExcelRowHeight (excelRow: ExcelJS.Row, height: number) {
   }
 }
 
-function setExcelCellStyle (excelCell: ExcelJS.Cell, align?: VxeTablePropTypes.Align | VxeTablePropTypes.HeaderAlign | VxeTablePropTypes.FooterAlign) {
+function setExcelCellStyle (excelCell: ExcelJS.Cell, align?: ColumnAlign) {
   excelCell.protection = {
     locked: false
   }
@@ -111,13 +108,11 @@ function getDefaultBorderStyle () {
   }
 }
 
-function exportXLSX (params: VxeGlobalInterceptorHandles.InterceptorExportParams) {
+function exportXLSX (params: InterceptorExportParams) {
   const msgKey = 'xlsx'
-  const { modal, t } = vxetable
   const { $table, options, columns, colgroups, datas } = params
-  const { props, reactData } = $table
-  const { headerAlign: allHeaderAlign, align: allAlign, footerAlign: allFooterAlign } = props
-  const { rowHeight } = reactData
+  const { $vxe, rowHeight, headerAlign: allHeaderAlign, align: allAlign, footerAlign: allFooterAlign } = $table
+  const { modal, t } = $vxe
   const { message, sheetName, isHeader, isFooter, isMerge, isColgroup, original, useStyle, sheetMethod } = options
   const showMsg = message !== false
   const mergeCells = $table.getMergeCells()
@@ -128,8 +123,8 @@ function exportXLSX (params: VxeGlobalInterceptorHandles.InterceptorExportParams
   let beforeRowCount = 0
   const colHead: any = {}
   columns.forEach((column) => {
-    const { id, field, renderWidth } = column
-    colHead[id] = original ? field : column.getTitle()
+    const { id, property, renderWidth } = column
+    colHead[id] = original ? property : column.getTitle()
     sheetCols.push({
       key: id,
       width: XEUtils.ceil(renderWidth / 8, 1)
@@ -148,7 +143,7 @@ function exportXLSX (params: VxeGlobalInterceptorHandles.InterceptorExportParams
           const { _colSpan, _rowSpan } = column
           const validColumn = getValidColumn(column)
           const columnIndex = columns.indexOf(validColumn)
-          groupHead[validColumn.id] = original ? validColumn.field : column.getTitle()
+          groupHead[validColumn.id] = original ? validColumn.property : column.getTitle()
           if (_colSpan > 1 || _rowSpan > 1) {
             sheetMerges.push({
               s: { r: rIndex, c: columnIndex },
@@ -246,20 +241,18 @@ function exportXLSX (params: VxeGlobalInterceptorHandles.InterceptorExportParams
       }
       excelRow.eachCell(excelCell => {
         const excelCol = sheet.getColumn(excelCell.col)
-        const column = $table.getColumnById(excelCol.key as string)
-        if (column) {
-          const { align } = column
-          setExcelCellStyle(excelCell, align || allAlign)
-          if (useStyle) {
-            Object.assign(excelCell, {
-              font: {
-                color: {
-                  argb: defaultCellFontColor
-                }
-              },
-              border: getDefaultBorderStyle()
-            })
-          }
+        const column: any = $table.getColumnById(excelCol.key as string)
+        const { align } = column
+        setExcelCellStyle(excelCell, align || allAlign)
+        if (useStyle) {
+          Object.assign(excelCell, {
+            font: {
+              color: {
+                argb: defaultCellFontColor
+              }
+            },
+            border: getDefaultBorderStyle()
+          })
         }
       })
     })
@@ -270,26 +263,25 @@ function exportXLSX (params: VxeGlobalInterceptorHandles.InterceptorExportParams
         }
         excelRow.eachCell(excelCell => {
           const excelCol = sheet.getColumn(excelCell.col)
-          const column = $table.getColumnById(excelCol.key as string)
-          if (column) {
-            const { footerAlign, align } = column
-            setExcelCellStyle(excelCell, footerAlign || align || allFooterAlign || allAlign)
-            if (useStyle) {
-              Object.assign(excelCell, {
-                font: {
-                  color: {
-                    argb: defaultCellFontColor
-                  }
-                },
-                border: getDefaultBorderStyle()
-              })
-            }
+          const column: any = $table.getColumnById(excelCol.key as string)
+          const { footerAlign, align } = column
+          setExcelCellStyle(excelCell, footerAlign || align || allFooterAlign || allAlign)
+          if (useStyle) {
+            Object.assign(excelCell, {
+              font: {
+                color: {
+                  argb: defaultCellFontColor
+                }
+              },
+              border: getDefaultBorderStyle()
+            })
           }
         })
       })
     }
     if (useStyle && sheetMethod) {
-      sheetMethod({ options: options, workbook, worksheet: sheet, columns, colgroups, datas, $table })
+      const sParams = { options: options as any, workbook, worksheet: sheet, columns, colgroups, datas, $table }
+      sheetMethod(sParams)
     }
     sheetMerges.forEach(({ s, e }) => {
       sheet.mergeCells(s.r + 1, s.c + 1, e.r + 1, e.c + 1)
@@ -300,20 +292,22 @@ function exportXLSX (params: VxeGlobalInterceptorHandles.InterceptorExportParams
       downloadFile(params, blob, options)
       if (showMsg && modal) {
         modal.close(msgKey)
-        modal.message({ content: t('vxe.table.expSuccess'), status: 'success' })
+        modal.message({ content: t('vxe.table.expSuccess') as string, status: 'success' })
       }
     })
   }
   if (showMsg && modal) {
-    modal.message({ id: msgKey, content: t('vxe.table.expLoading'), status: 'loading', duration: -1 })
+    modal.message({ id: msgKey, content: t('vxe.table.expLoading') as string, status: 'loading', duration: -1 })
     setTimeout(exportMethod, 1500)
   } else {
     exportMethod()
   }
 }
 
-function downloadFile (params: VxeGlobalInterceptorHandles.InterceptorExportParams, blob: Blob, options: VxeTablePropTypes.ExportConfig) {
-  const { modal, t } = vxetable
+function downloadFile (params: InterceptorExportParams, blob: Blob, options: TableExportConfig) {
+  const { $table } = params
+  const { $vxe } = $table
+  const { modal, t } = $vxe
   const { message, filename, type } = options
   const showMsg = message !== false
   if (window.Blob) {
@@ -330,7 +324,7 @@ function downloadFile (params: VxeGlobalInterceptorHandles.InterceptorExportPara
     }
   } else {
     if (showMsg && modal) {
-      modal.alert({ content: t('vxe.error.notExp'), status: 'error' })
+      modal.alert({ content: t('vxe.error.notExp') as string, status: 'error' })
     }
   }
 }
@@ -339,25 +333,29 @@ function checkImportData (tableFields: string[], fields: string[]) {
   return fields.some(field => tableFields.indexOf(field) > -1)
 }
 
-function importError (params: VxeGlobalInterceptorHandles.InterceptorImportParams) {
-  const { modal, t } = vxetable
+declare module 'vxe-table' {
+  interface Table {
+    _importResolve?: Function | null;
+    _importReject?: Function | null;
+  }
+}
+function importError (params: InterceptorImportParams) {
   const { $table, options } = params
-  const { internalData } = $table
-  const { _importReject } = internalData
+  const { $vxe, _importReject } = $table
   const showMsg = options.message !== false
+  const { modal, t } = $vxe
   if (showMsg && modal) {
-    modal.message({ content: t('vxe.error.impFields'), status: 'error' })
+    modal.message({ content: t('vxe.error.impFields') as string, status: 'error' })
   }
   if (_importReject) {
     _importReject({ status: false })
   }
 }
 
-function importXLSX (params: VxeGlobalInterceptorHandles.InterceptorImportParams) {
-  const { modal, t } = vxetable
+function importXLSX (params: InterceptorImportParams) {
   const { $table, columns, options, file } = params
-  const { internalData } = $table
-  const { _importResolve } = internalData
+  const { $vxe, _importResolve } = $table
+  const { modal, t } = $vxe
   const showMsg = options.message !== false
   const fileReader = new FileReader()
   fileReader.onerror = () => {
@@ -366,7 +364,7 @@ function importXLSX (params: VxeGlobalInterceptorHandles.InterceptorImportParams
   fileReader.onload = (evnt) => {
     const tableFields: string[] = []
     columns.forEach((column) => {
-      const field = column.field
+      const field = column.property
       if (field) {
         tableFields.push(field)
       }
@@ -394,21 +392,21 @@ function importXLSX (params: VxeGlobalInterceptorHandles.InterceptorImportParams
               return record
             })
             $table.createData(records)
-              .then((data: any[]) => {
-                let loadRest: Promise<any>
-                if (options.mode === 'insert') {
-                  loadRest = $table.insertAt(data, -1)
-                } else {
-                  loadRest = $table.reloadData(data)
-                }
-                return loadRest.then(() => {
-                  if (_importResolve) {
-                    _importResolve({ status: true })
+                .then((data: any[]) => {
+                  let loadRest: Promise<any>
+                  if (options.mode === 'insert') {
+                    loadRest = $table.insertAt(data, -1)
+                  } else {
+                    loadRest = $table.reloadData(data)
                   }
+                  return loadRest.then(() => {
+                    if (_importResolve) {
+                      _importResolve({ status: true })
+                    }
+                  })
                 })
-              })
             if (showMsg && modal) {
-              modal.message({ content: t('vxe.table.impSuccess', [records.length]), status: 'success' })
+              modal.message({ content: t('vxe.table.impSuccess', [records.length]) as string, status: 'success' })
             }
           } else {
             importError(params)
@@ -424,14 +422,14 @@ function importXLSX (params: VxeGlobalInterceptorHandles.InterceptorImportParams
   fileReader.readAsArrayBuffer(file)
 }
 
-function handleImportEvent (params: VxeGlobalInterceptorHandles.InterceptorImportParams) {
+function handleImportEvent (params: InterceptorImportParams) {
   if (params.options.type === 'xlsx') {
     importXLSX(params)
     return false
   }
 }
 
-function handleExportEvent (params: VxeGlobalInterceptorHandles.InterceptorExportParams) {
+function handleExportEvent (params: InterceptorExportParams) {
   if (params.options.type === 'xlsx') {
     exportXLSX(params)
     return false
@@ -442,12 +440,9 @@ function handleExportEvent (params: VxeGlobalInterceptorHandles.InterceptorExpor
  * 基于 vxe-table 表格的增强插件，支持导出 xlsx 格式
  */
 export const VXETablePluginExportXLSX = {
-  install (vxetablecore: VXETableCore) {
-    const { setup, interceptor } = vxetablecore
-
-    vxetable = vxetablecore
-
-    setup({
+  install (vxetable: typeof VXETable) {
+    const { interceptor } = vxetable
+    vxetable.setup({
       export: {
         types: {
           xlsx: 0
