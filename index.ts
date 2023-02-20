@@ -8,7 +8,7 @@ import {
   TableExportConfig,
   ColumnAlign
 } from 'vxe-table'
-import * as ExcelJS from 'exceljs'
+import * as ExcelJS from 'exceljs/dist/exceljs'
 
 const defaultHeaderBackgroundColor = 'f8f8f9'
 const defaultCellFontColor = '606266'
