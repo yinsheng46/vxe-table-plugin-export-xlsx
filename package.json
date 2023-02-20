@@ -1,7 +1,7 @@
 {
   "name": "vxe-table-plugin-export-xlsx-dev",
   "version": "2.2.2",
-  "description": "修复关联exceljs打包报错，基于 vxe-table 的表格插件，支持导出 xlsx 格式",
+  "description": "修复关联exceljs打包报错，基于 vxe-table 的表格插件，支持导出 xlsx 格式 ",
   "scripts": {
     "lib": "gulp build"
   },
