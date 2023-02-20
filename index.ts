@@ -1,6 +1,6 @@
 import XEUtils from 'xe-utils'
 import { VXETableCore, VxeTableConstructor, VxeTablePropTypes, VxeTableDefines, VxeGlobalInterceptorHandles } from 'vxe-table'
-import ExcelJS from 'exceljs'
+import ExcelJS from 'exceljs/dist/exceljs'
 
 let vxetable:VXETableCore
 
