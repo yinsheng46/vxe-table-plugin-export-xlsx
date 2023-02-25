@@ -110,7 +110,7 @@ function getDefaultBorderStyle () {
 }
 
 function exportXLSX (params: InterceptorExportParams) {
-  console.log('hello connie ')
+  console.log('hello connie')
   const msgKey = 'xlsx'
   const { $table, options, columns, colgroups, datas } = params
   const { $vxe, rowHeight, headerAlign: allHeaderAlign, align: allAlign, footerAlign: allFooterAlign } = $table
