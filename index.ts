@@ -8,7 +8,8 @@ import {
   TableExportConfig,
   ColumnAlign
 } from 'vxe-table'
-import * as ExcelJS from 'exceljs/dist/exceljs'
+// import * as ExcelJS from 'exceljs/dist/exceljs'
+import * as ExcelJS from 'exceljs'
 
 const defaultHeaderBackgroundColor = 'f8f8f9'
 const defaultCellFontColor = '606266'
@@ -109,6 +110,7 @@ function getDefaultBorderStyle () {
 }
 
 function exportXLSX (params: InterceptorExportParams) {
+  console.log('hello connie')
   const msgKey = 'xlsx'
   const { $table, options, columns, colgroups, datas } = params
   const { $vxe, rowHeight, headerAlign: allHeaderAlign, align: allAlign, footerAlign: allFooterAlign } = $table
